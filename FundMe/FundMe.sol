@@ -10,6 +10,9 @@ contract Fund{
 
     address public owner;
 
+    uint256 depolyTimeStamp;
+    uint256 lockTime;
+
     AggregatorV3Interface internal dataFeed;
 
     /**
@@ -17,14 +20,17 @@ contract Fund{
     * Aggregator: BTC/USD
     * Address: 0x1b44F3514812d835EB1BDB0acB33d3fA3351Ee43
     */
-    constructor() {
+    constructor(uint256 _lockTime) {
         //sepolia  testnet
         dataFeed = AggregatorV3Interface(0x694AA1769357215DE4FAC081bf1f309aDC325306);
         owner = msg.sender;
+        depolyTimeStamp = block.timestamp;
+        lockTime = _lockTime;
     }
 
     function fund() external payable {
         require(convertETH2USDT(msg.value) >= MIN_VAULE,"send more eth");
+        require(block.timestamp < depolyTimeStamp + lockTime, "fund window is closed!");
         // 付款方地址（调用者）
         address payer = msg.sender;
         // 收款方地址（当前合约地址）
@@ -52,7 +58,7 @@ contract Fund{
 
     //提款  是从合约地址提取到自己的地址中
     //只能够是厂商自己调用哦，其他人无权限
-    function getFund() external {
+    function getFund() external WindowClosed{
         //
         require(owner == msg.sender,"this function is  only called by owner!");
         require(convertETH2USDT(address(this).balance) >= TARGET_VALUE, "target is not reached!");
@@ -69,13 +75,18 @@ contract Fund{
     }
 
     //退款
-    function reFund() external {
+    function reFund() external WindowClosed{
         require(convertETH2USDT(address(this).balance) < TARGET_VALUE, "target is reached!"); 
         require(funders2Amount[msg.sender] !=0 , "no fund from you!");
         bool success;
         (success,) =  payable(msg.sender).call{value: funders2Amount[msg.sender]}(""); 
         require(success,"transaction is failed!");
         funders2Amount[msg.sender] = 0;//交易成功后清零，否则可以多次退款哦
+    }
+
+    modifier WindowClosed(){
+        require(block.timestamp >= depolyTimeStamp + lockTime, "fund window is not closed!");//先判断
+        _;//后续操作
     }
 
     // 事件定义（添加到合约内，与 `fund` 函数同级）
