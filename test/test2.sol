@@ -9,13 +9,7 @@ contract Parent{
     }
 }
 
-contract Child{
-    uint256 public a;
-
-    function addOne() public {
-        a++;
-    }
-
+contract Child is Parent {
     function addTwo() public {
         a += 2;
     }
